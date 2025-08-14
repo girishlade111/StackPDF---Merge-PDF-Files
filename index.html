@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StackPDF - Merge PDF Files</title>
+    
+    <!-- TailwindCSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- pdf-lib for client-side PDF manipulation -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    
+    <!-- SortableJS for drag-and-drop reordering -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+    <!-- Custom Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Basic styles and theme configuration */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .light {
+            --bg-primary: #f3f4f6; /* gray-100 */
+            --bg-secondary: #ffffff; /* white */
+            --text-primary: #1f2937; /* gray-800 */
+            --text-secondary: #6b7280; /* gray-500 */
+            --border-color: #e5e7eb; /* gray-200 */
+            --accent-color: #3b82f6; /* blue-500 */
+        }
+        .dark {
+            --bg-primary: #111827; /* gray-900 */
+            --bg-secondary: #1f2937; /* gray-800 */
+            --text-primary: #f9fafb; /* gray-50 */
+            --text-secondary: #9ca3af; /* gray-400 */
+            --border-color: #374151; /* gray-700 */
+            --accent-color: #60a5fa; /* blue-400 */
+        }
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        /* Style for the file list items being dragged */
+        .sortable-ghost {
+            opacity: 0.4;
+            background-color: #60a5fa20;
+        }
+        .sortable-drag {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div id="app" class="min-h-screen flex flex-col p-4 md:p-8">
+        
+        <!-- Header -->
+        <header class="w-full max-w-5xl mx-auto flex justify-between items-center pb-8">
+            <div class="flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--accent-color)]"><path d="M22 12h-6l-2 3h-4l-2-3H2"></path><path d="M5 12v6h14v-6"></path><path d="M15 12v6H9v-6"></path></svg>
+                <h1 class="text-2xl font-bold text-[var(--text-primary)]">StackPDF</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-sm text-[var(--text-secondary)] hidden sm:inline">Combine PDFs in the order you want.</span>
+                <button id="theme-toggle" class="p-2 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition">
+                    <svg id="theme-icon-light" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    <svg id="theme-icon-dark" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow w-full max-w-5xl mx-auto flex flex-col items-center">
+            
+            <!-- File Upload Zone -->
+            <div id="drop-zone" class="w-full border-2 border-dashed border-[var(--border-color)] rounded-xl p-8 md:p-16 text-center cursor-pointer bg-[var(--bg-secondary)] hover:border-[var(--accent-color)] transition-colors duration-300">
+                <input type="file" id="file-input" class="hidden" multiple accept=".pdf">
+                <div class="flex flex-col items-center justify-center gap-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--text-secondary)]"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <p class="text-lg font-semibold text-[var(--text-primary)]">Drop PDF files here or <span class="text-[var(--accent-color)]">click to upload</span></p>
+                    <p class="text-sm text-[var(--text-secondary)]">Select multiple files to get started</p>
+                </div>
+            </div>
+
+            <!-- Status Messages & Progress Bar -->
+            <div id="status-container" class="w-full max-w-2xl mt-6 text-center h-12">
+                <div id="error-message" class="text-red-500 font-medium hidden"></div>
+                <div id="progress-container" class="w-full bg-[var(--border-color)] rounded-full h-2.5 hidden">
+                    <div id="progress-bar" class="bg-[var(--accent-color)] h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                 <p id="progress-text" class="text-sm text-[var(--text-secondary)] mt-2 hidden"></p>
+            </div>
+
+            <!-- File List -->
+            <div id="file-list-container" class="w-full max-w-2xl mt-4">
+                <!-- Files will be dynamically inserted here -->
+            </div>
+
+        </main>
+
+        <!-- Action Bar -->
+        <footer class="w-full sticky bottom-0 bg-[var(--bg-primary)] bg-opacity-80 backdrop-blur-sm py-4 mt-8">
+            <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-4">
+                 <button id="merge-btn" class="w-full sm:w-auto px-8 py-4 bg-[var(--accent-color)] text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none" disabled>
+                    Merge PDFs
+                </button>
+                 <p class="text-xs text-[var(--text-secondary)] mt-2 sm:mt-0">© LadeStack 2025</p>
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DEPENDENCIES ---
+            const { PDFDocument } = PDFLib;
+
+            // --- STATE ---
+            let fileList = []; // Array to hold file objects { id, file, name, size, pageCount }
+
+            // --- DOM ELEMENTS ---
+            const dropZone = document.getElementById('drop-zone');
+            const fileInput = document.getElementById('file-input');
+            const fileListContainer = document.getElementById('file-list-container');
+            const mergeBtn = document.getElementById('merge-btn');
+            const errorMessage = document.getElementById('error-message');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const themeToggle = document.getElementById('theme-toggle');
+            const themeIconLight = document.getElementById('theme-icon-light');
+            const themeIconDark = document.getElementById('theme-icon-dark');
+            const htmlEl = document.documentElement;
+            
+            // --- FUNCTION DEFINITIONS ---
+
+            // --- THEME TOGGLE ---
+            const applyTheme = (theme) => {
+                if (theme === 'dark') {
+                    htmlEl.classList.remove('light');
+                    htmlEl.classList.add('dark');
+                    themeIconLight.classList.add('hidden');
+                    themeIconDark.classList.remove('hidden');
+                } else {
+                    htmlEl.classList.remove('dark');
+                    htmlEl.classList.add('light');
+                    themeIconLight.classList.remove('hidden');
+                    themeIconDark.classList.add('hidden');
+                }
+            };
+
+            // --- FILE HANDLING ---
+            const handleFiles = (files) => {
+                hideError();
+                const newFiles = Array.from(files)
+                    .filter(file => {
+                        if (file.type !== 'application/pdf') {
+                            showError(`'${file.name}' is not a PDF file.`);
+                            return false;
+                        }
+                        if (fileList.some(f => f.name === file.name && f.size === file.size)) {
+                            showError(`'${file.name}' is already in the list.`);
+                            return false;
+                        }
+                        return true;
+                    })
+                    .map(file => ({
+                        id: crypto.randomUUID(),
+                        file: file,
+                        name: file.name,
+                        size: file.size,
+                        pageCount: '...' // Placeholder
+                    }));
+
+                if (newFiles.length > 0) {
+                    fileList = [...fileList, ...newFiles];
+                    renderFileList();
+                    newFiles.forEach(fileObj => readPageCount(fileObj));
+                }
+            };
+
+            const readPageCount = async (fileObj) => {
+                try {
+                    const arrayBuffer = await fileObj.file.arrayBuffer();
+                    const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+                    fileObj.pageCount = pdfDoc.getPageCount();
+                } catch (error) {
+                    console.error("Failed to read PDF:", error);
+                    fileObj.pageCount = 'Error';
+                    showError(`Could not read pages from '${fileObj.name}'. It might be encrypted or corrupted.`);
+                }
+                renderFileList();
+            };
+
+            // --- UI RENDERING ---
+            const renderFileList = () => {
+                fileListContainer.innerHTML = '';
+                if (fileList.length === 0) {
+                    fileListContainer.innerHTML = '<p class="text-center text-[var(--text-secondary)]">No files selected yet.</p>';
+                } else {
+                    fileList.forEach((fileObj, index) => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'file-item flex items-center justify-between bg-[var(--bg-secondary)] p-3 rounded-lg border border-[var(--border-color)] mb-2 shadow-sm cursor-grab';
+                        fileItem.dataset.id = fileObj.id;
+                        
+                        fileItem.innerHTML = `
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <div class="text-[var(--text-secondary)]">${index + 1}</div>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500 flex-shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                <div class="flex-grow truncate">
+                                    <p class="font-medium text-[var(--text-primary)] truncate" title="${fileObj.name}">${fileObj.name}</p>
+                                    <p class="text-xs text-[var(--text-secondary)]">${formatBytes(fileObj.size)} • ${fileObj.pageCount} pages</p>
+                                </div>
+                            </div>
+                            <button class="remove-btn p-1.5 rounded-full text-[var(--text-secondary)] hover:bg-[var(--border-color)] hover:text-red-500 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        `;
+                        fileListContainer.appendChild(fileItem);
+                    });
+                }
+                updateMergeButtonState();
+            };
+
+            const updateMergeButtonState = () => {
+                mergeBtn.disabled = fileList.length < 2;
+            };
+
+            // --- CORE LOGIC: MERGING ---
+            const mergePdfs = async () => {
+                if (fileList.length < 2) {
+                    showError("Please select at least two PDF files to merge.");
+                    return;
+                }
+                
+                hideError();
+                showProgress(true);
+                mergeBtn.disabled = true;
+                
+                try {
+                    const mergedPdf = await PDFDocument.create();
+                    
+                    for (let i = 0; i < fileList.length; i++) {
+                        const fileObj = fileList[i];
+                        updateProgress((i / fileList.length) * 100, `Loading: ${fileObj.name}`);
+                        
+                        const arrayBuffer = await fileObj.file.arrayBuffer();
+                        const pdfToMerge = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+                        
+                        const indices = pdfToMerge.getPageIndices();
+                        const copiedPages = await mergedPdf.copyPages(pdfToMerge, indices);
+                        copiedPages.forEach(page => mergedPdf.addPage(page));
+                    }
+                    
+                    updateProgress(100, "Finalizing document...");
+                    const mergedPdfBytes = await mergedPdf.save();
+                    
+                    downloadFile(mergedPdfBytes, "StackPDF-merged.pdf", "application/pdf");
+                    
+                    // Reset state after successful merge
+                    fileList = [];
+                    renderFileList();
+
+                } catch (error) {
+                    console.error("Merging failed:", error);
+                    showError("An error occurred during merging. A file might be corrupted or password-protected.");
+                } finally {
+                    showProgress(false);
+                    updateMergeButtonState();
+                }
+            };
+
+            // --- UTILITY FUNCTIONS ---
+            const formatBytes = (bytes, decimals = 2) => {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const dm = decimals < 0 ? 0 : decimals;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            };
+
+            const downloadFile = (data, fileName, mimeType) => {
+                const blob = new Blob([data], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            const showError = (message) => {
+                errorMessage.textContent = message;
+                errorMessage.classList.remove('hidden');
+            };
+
+            const hideError = () => {
+                errorMessage.textContent = '';
+                errorMessage.classList.add('hidden');
+            };
+
+            const showProgress = (visible) => {
+                if (visible) {
+                    progressContainer.classList.remove('hidden');
+                    progressText.classList.remove('hidden');
+                } else {
+                    progressContainer.classList.add('hidden');
+                    progressText.classList.add('hidden');
+                }
+            };
+            
+            const updateProgress = (percentage, text) => {
+                progressBar.style.width = `${percentage}%`;
+                progressText.textContent = text;
+            };
+
+            // --- INITIALIZATION & EVENT LISTENERS ---
+            
+            // Initialize SortableJS for drag-and-drop
+            new Sortable(fileListContainer, {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: (evt) => {
+                    // Reorder the fileList array based on the drag-and-drop action
+                    const [movedItem] = fileList.splice(evt.oldIndex, 1);
+                    fileList.splice(evt.newIndex, 0, movedItem);
+                    renderFileList(); // Re-render to reflect new order
+                },
+            });
+
+            // Set initial theme
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            applyTheme(currentTheme);
+
+            // Attach event listeners
+            themeToggle.addEventListener('click', () => {
+                const newTheme = htmlEl.classList.contains('dark') ? 'light' : 'dark';
+                localStorage.setItem('theme', newTheme);
+                applyTheme(newTheme);
+            });
+
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('border-[var(--accent-color)]');
+            });
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('border-[var(--accent-color)]');
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('border-[var(--accent-color)]');
+                const files = e.dataTransfer.files;
+                handleFiles(files);
+            });
+            fileInput.addEventListener('change', (e) => {
+                const files = e.target.files;
+                handleFiles(files);
+            });
+            mergeBtn.addEventListener('click', mergePdfs);
+            
+            // Listener for remove buttons (using event delegation)
+            fileListContainer.addEventListener('click', (e) => {
+                if (e.target.closest('.remove-btn')) {
+                    const idToRemove = e.target.closest('.file-item').dataset.id;
+                    fileList = fileList.filter(f => f.id !== idToRemove);
+                    renderFileList();
+                }
+            });
+
+            // --- INITIAL RENDER ---
+            renderFileList();
+        });
+    </script>
+</body>
+</html>
